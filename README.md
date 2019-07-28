@@ -1,7 +1,7 @@
 
 Neovim client library and GUI, in Qt5.
 
-[![Build Status](https://semaphoreci.com/api/v1/projects/1ca75720-56a2-4573-883b-f90fd6241327/414035/badge.svg)](https://semaphoreci.com/equalsraf/neovim-qt)
+[![Build Status](https://circleci.com/gh/equalsraf/neovim-qt.svg?style=svg)](https://circleci.com/gh/equalsraf/neovim-qt)
 [![Build status](https://ci.appveyor.com/api/projects/status/c252f54mfjcuud8x/branch/master?svg=true)](https://ci.appveyor.com/project/equalsraf/neovim-qt/branch/master)
 [![Build Status](https://travis-ci.org/equalsraf/neovim-qt.svg?branch=master)](https://travis-ci.org/equalsraf/neovim-qt)
 [![Coverage Status](https://coveralls.io/repos/equalsraf/neovim-qt/badge.svg?branch=tb-refactor)](https://coveralls.io/r/equalsraf/neovim-qt)
@@ -50,7 +50,16 @@ Commands for interacting with the GUI are regular commands, available in the doc
 
 	:Guifont DejaVu Sans Mono:h13
 
+To disable the GUI tabline and use the nvim TUI tabline, call
+
+	:GuiTabline 0
+
 You can set GUI options on startup, in the GUI configuration file (:help ginit.vim).
+
+In recent versions of Neovim you can also use regular options (in init.vim) that have the same effect:
+
+- set guifont=DejaVu\ Sans\ Mono:h11
+- set linespace=4
 
 ## Development
 

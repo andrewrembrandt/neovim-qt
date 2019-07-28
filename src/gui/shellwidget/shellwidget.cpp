@@ -39,9 +39,10 @@ void ShellWidget::setDefaultFont()
 	setShellFont(DEFAULT_FONT, 11, -1, false, true);
 }
 
-bool ShellWidget::setShellFont(const QString& family, int ptSize, int weight, bool italic, bool force)
+bool ShellWidget::setShellFont(const QString& family, qreal ptSize, int weight, bool italic, bool force)
 {
-	QFont f(family, ptSize, weight, italic);
+	QFont f(family, -1, weight, italic);
+	f.setPointSizeF(ptSize);
 	f.setStyleHint(QFont::TypeWriter, QFont::StyleStrategy(QFont::PreferDefault | QFont::ForceIntegerMetrics));
 	f.setFixedPitch(true);
 	f.setKerning(false);
@@ -75,7 +76,7 @@ void ShellWidget::setFont(const QFont& f)
 	QWidget::setFont(f);
 }
 
-void ShellWidget::setLineSpace(unsigned int height)
+void ShellWidget::setLineSpace(int height)
 {
 	if (height != m_lineSpace) {
 		m_lineSpace = height;
@@ -127,7 +128,7 @@ void ShellWidget::paintEvent(QPaintEvent *ev)
 			end_col = m_contents.columns();
 		}
 		if (end_row > m_contents.rows()) {
-			end_col = m_contents.columns();
+			end_row = m_contents.rows();
 		}
 
 		// end_col/row is inclusive
@@ -168,7 +169,7 @@ void ShellWidget::paintEvent(QPaintEvent *ev)
 					}
 
 					// Draw chars at the baseline
-					QPoint pos(r.left(), r.top()+m_ascent+m_lineSpace);
+					QPoint pos(r.left(), r.top()+m_ascent+(m_lineSpace / 2));
 					p.drawText(pos, QString(cell.c));
 				}
 
@@ -387,9 +388,9 @@ QString ShellWidget::fontFamily() const
 {
 	return QFontInfo(font()).family();
 }
-int ShellWidget::fontSize() const
+qreal ShellWidget::fontSize() const
 {
-	return font().pointSize();
+	return font().pointSizeF();
 }
 
 int ShellWidget::rows() const

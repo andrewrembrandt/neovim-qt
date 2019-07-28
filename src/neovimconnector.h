@@ -5,19 +5,27 @@
 #include <QAbstractSocket>
 #include <QProcess>
 #include <QTextCodec>
+#include "msgpackiodevice.h"
 #include "auto/neovimapi0.h"
 #include "auto/neovimapi1.h"
 #include "auto/neovimapi2.h"
+#include "auto/neovimapi3.h"
+#include "auto/neovimapi4.h"
+#include "auto/neovimapi6.h"
 
 namespace NeovimQt {
 
 class MsgpackIODevice;
+class MsgpackRequestHandler;
 class NeovimConnectorHelper;
 class NeovimConnector: public QObject
 {
 	friend class NeovimApi0;
 	friend class NeovimApi1;
 	friend class NeovimApi2;
+	friend class NeovimApi3;
+	friend class NeovimApi4;
+	friend class NeovimApi6;
 	friend class NeovimConnectorHelper;
 	Q_OBJECT
 	/**
@@ -73,12 +81,17 @@ public:
 	NeovimApi1 * neovimObject();
 	NeovimApi1 * api1();
 	NeovimApi2 * api2();
+	NeovimApi3 * api3();
+	NeovimApi4 * api4();
+	NeovimApi6 * api6();
 	uint64_t channel();
 	QString decode(const QByteArray&);
 	QByteArray encode(const QString&);
 	NeovimConnectionType connectionType();
 	/** Some requests for metadata and ui attachment enforce a timeout in ms */
 	void setRequestTimeout(int);
+	/** Set a handler for msgpack rpc requests **/
+	void setRequestHandler(MsgpackRequestHandler *);
 
 	quint64 apiCompatibility();
 	quint64 apiLevel();
@@ -111,6 +124,9 @@ private:
 	NeovimApi0 *m_api0;
 	NeovimApi1 *m_api1;
 	NeovimApi2 *m_api2;
+	NeovimApi3 *m_api3;
+	NeovimApi4 *m_api4;
+	NeovimApi6 *m_api6;
 	quint64 m_channel;
 	quint64 m_api_compat;
 	quint64 m_api_supported;
@@ -126,5 +142,6 @@ private:
 };
 } // namespace NeovimQt
 Q_DECLARE_METATYPE(NeovimQt::NeovimConnector::NeovimError)
+Q_DECLARE_METATYPE(int64_t)
 
 #endif

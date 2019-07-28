@@ -17,14 +17,14 @@ class ShellWidget: public QWidget
 	Q_PROPERTY(QSize cellSize READ cellSize)
 public:
 	ShellWidget(QWidget *parent=0);
-	bool setShellFont(const QString& family, int ptSize, int weight = -1, bool italic = false, bool force = false);
+	bool setShellFont(const QString& family, qreal ptSize, int weight = -1, bool italic = false, bool force = false);
 
-        QPixmap* backgroundPixmap() const;
+  QPixmap* backgroundPixmap() const;
 	QColor background() const;
 	QColor foreground() const;
 	QColor special() const;
 	QString fontFamily() const;
-	int fontSize() const;
+	qreal fontSize() const;
 	static ShellWidget* fromFile(const QString& path);
 
 	int rows() const;
@@ -38,7 +38,7 @@ signals:
 public slots:
 	void resizeShell(int rows, int columns);
 	void setSpecial(const QColor& color);
-        void setBackgroundPixmap(QPixmap* pm);
+  void setBackgroundPixmap(QPixmap* pm);
 	void setBackground(const QColor& color);
 	void setForeground(const QColor& color);
 	void setDefaultFont();
@@ -52,7 +52,7 @@ public slots:
 	void scrollShell(int rows);
 	void scrollShellRegion(int row0, int row1, int col0,
 			int col1, int rows);
-        void setLineSpace(unsigned int height);
+	void setLineSpace(int height);
 protected:
 	virtual void paintEvent(QPaintEvent *ev) Q_DECL_OVERRIDE;
 	virtual void resizeEvent(QResizeEvent *ev) Q_DECL_OVERRIDE;
@@ -62,14 +62,14 @@ protected:
 
 private:
 	void setFont(const QFont&);
-        void paintCellBg(QPoint& screenOrigin, QPainter& p, QRect& r);
+  void paintCellBg(QPoint& screenOrigin, QPainter& p, QRect& r);
 
 	ShellContents m_contents;
 	QSize m_cellSize;
 	int m_ascent;
 	QColor m_bgColor, m_fgColor, m_spColor;
-        QPixmap* m_bgPixmap;
-        unsigned int m_lineSpace;
+  QPixmap* m_bgPixmap;
+	int m_lineSpace;
 };
 
 #endif

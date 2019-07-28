@@ -1,5 +1,9 @@
 
 include_directories(${CMAKE_SOURCE_DIR}/src)
+add_definitions(-DCMAKE_SOURCE_DIR=\"${CMAKE_SOURCE_DIR}\")
+if (WIN32 AND USE_STATIC_QT)
+	add_definitions(-DUSE_STATIC_QT)
+endif ()
 
 add_custom_target(check COMMAND ${CMAKE_CTEST_COMMAND})
 function(add_xtest SOURCE_NAME)

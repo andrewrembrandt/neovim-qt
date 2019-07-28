@@ -25,11 +25,13 @@ NeovimConnector::NeovimConnector(QIODevice *dev)
 }
 
 NeovimConnector::NeovimConnector(MsgpackIODevice *dev)
-:QObject(), m_dev(dev), m_helper(0), m_error(NoError), m_api0(NULL), m_api1(NULL), m_api2(NULL),
-	m_channel(0), m_api_compat(0), m_api_supported(0), m_ctype(OtherConnection), m_ready(false), m_timeout(10000)
+:QObject(), m_dev(dev), m_helper(0), m_error(NoError), m_api0(NULL), m_api1(NULL), m_api2(NULL), m_api3(NULL),
+	m_api4(NULL), m_api6(NULL), m_channel(0), m_api_compat(0), m_api_supported(0), m_ctype(OtherConnection),
+    m_ready(false), m_timeout(20000)
 {
 	m_helper = new NeovimConnectorHelper(this);
 	qRegisterMetaType<NeovimError>("NeovimError");
+	qRegisterMetaType<int64_t>("int64_t");
 
 	connect(m_dev, &MsgpackIODevice::error,
 			this, &NeovimConnector::msgpackError);
@@ -144,7 +146,7 @@ NeovimApi0* NeovimConnector::api0()
 		if (m_api_compat <= 0) {
 			m_api0 = new NeovimApi0(this);
 		} else {
-			qDebug() << "This instance of neovim DOES NOT not support api level 0";
+			qDebug() << "This instance of neovim DOES NOT support api level 0";
 		}
 	}
 	return m_api0;
@@ -159,7 +161,7 @@ NeovimApi1* NeovimConnector::api1()
 		if (m_api_compat <= 1 && 1 <= m_api_supported) {
 			m_api1 = new NeovimApi1(this);
 		} else {
-			qDebug() << "This instance of neovim DOES NOT not support api level 1";
+			qDebug() << "This instance of neovim DOES NOT support api level 1";
 		}
 	}
 	return m_api1;
@@ -188,6 +190,54 @@ NeovimApi2* NeovimConnector::api2()
 }
 
 /**
+ * @warning Do not call this before NeovimConnector::ready as been signaled
+ * @see NeovimConnector::isReady
+ */
+NeovimApi3* NeovimConnector::api3()
+{
+	if ( !m_api3 ) {
+		if (m_api_compat <= 3 && 3 <= m_api_supported) {
+			m_api3 = new NeovimApi3(this);
+		} else {
+			qWarning() << "This instance of neovim not support api level 3";
+		}
+	}
+	return m_api3;
+}
+
+/**
+ * @warning Do not call this before NeovimConnector::ready as been signaled
+ * @see NeovimConnector::isReady
+ */
+NeovimApi4* NeovimConnector::api4()
+{
+	if ( !m_api4 ) {
+		if (m_api_compat <= 4 && 4 <= m_api_supported) {
+			m_api4 = new NeovimApi4(this);
+		} else {
+			qWarning() << "This instance of neovim not support api level 4";
+		}
+	}
+	return m_api4;
+}
+
+/**
+ * @warning Do not call this before NeovimConnector::ready as been signaled
+ * @see NeovimConnector::isReady
+ */
+NeovimApi6* NeovimConnector::api6()
+{
+	if ( !m_api6 ) {
+		if (m_api_compat <= 6 && 6 <= m_api_supported) {
+			m_api6 = new NeovimApi6(this);
+		} else {
+			qWarning() << "This instance of neovim not support api level 6";
+		}
+	}
+	return m_api6;
+}
+
+/**
  * Launch an embedded Neovim process
  * @see processExited
  */
@@ -195,15 +245,15 @@ NeovimConnector* NeovimConnector::spawn(const QStringList& params, const QString
 {
 	QProcess *p = new QProcess();
 	QStringList args;
+	// Neovim accepts a `--' argument after which only filenames are passed.
+	// If the user has supplied it, our arguments must appear before.
 	if (params.indexOf("--") == -1) {
+		args << "--embed";
 		args.append(params);
-		args << "--embed" << "--headless";
 	} else {
-		// Neovim accepts a -- argument after which only
-		// filenames are passed
 		int idx = params.indexOf("--");
 		args.append(params.mid(0, idx));
-		args << "--embed" << "--headless";
+		args << "--embed";
 		args.append(params.mid(idx));
 	}
 
@@ -345,6 +395,11 @@ void NeovimConnector::msgpackError()
 void NeovimConnector::fatalTimeout()
 {
 	setError(RuntimeMsgpackError, "Neovim is taking too long to respond");
+}
+
+void NeovimConnector::setRequestHandler(MsgpackRequestHandler *h)
+{
+	m_dev->setRequestHandler(h);
 }
 
 /**
