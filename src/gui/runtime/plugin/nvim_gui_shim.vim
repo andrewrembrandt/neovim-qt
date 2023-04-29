@@ -284,6 +284,12 @@ function! s:GuiWindowOpacityCommand(value) abort
 endfunction
 command! -nargs=1 GuiWindowOpacity call s:GuiWindowOpacityCommand("<args>")
 
+" Set window background transparency
+function! s:GuiWindowBackgroundOpacityCommand(value) abort
+  call rpcnotify(0, 'Gui', 'WindowBackgroundOpacity', a:value)
+endfunction
+command! -nargs=1 GuiWindowBackgroundOpacity call s:GuiWindowBackgroundOpacityCommand("<args>")
+
 " Issue 728: Terminal reports ';2u' for key sequences such as <S-Space>
 " Force-mapping keys is a less-than ideal workaround, but it is the only
 " option that appeases everyone. Neovim does not report terminal mode.

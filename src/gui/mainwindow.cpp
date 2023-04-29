@@ -27,9 +27,6 @@ MainWindow::MainWindow(NeovimConnector* c, QWidget* parent) noexcept
 
 	setWindowTitle(DefaultWindowTitle());
 
-  setAttribute(Qt::WA_TranslucentBackground, true);
-  setAttribute(Qt::WA_NoSystemBackground, false);
-
 	init(c);
 }
 
@@ -99,6 +96,8 @@ void MainWindow::init(NeovimConnector *c)
 			this, &MainWindow::neovimGuiCloseRequest);
 	connect(m_shell, &Shell::neovimOpacity,
 			this, &MainWindow::setWindowOpacity);
+	connect(m_shell, &Shell::neovimBackgroundOpacity,
+			this, &MainWindow::setWindowBackgroundOpacity);
 	connect(m_nvim, &NeovimConnector::processExited,
 			this, &MainWindow::neovimExited);
 	connect(m_nvim, &NeovimConnector::error,
@@ -353,6 +352,17 @@ void MainWindow::showGuiAdaptiveStyleList()
 	const QString styleKeys{ QStyleFactory::keys().join("\n") };
 	QString echoCommand{ R"(echo "%1")" };
 	m_nvim->api0()->vim_command(echoCommand.arg(styleKeys).toLatin1());
+}
+
+void MainWindow::setWindowBackgroundOpacity(bool isEnabled)
+{
+  if (isEnabled) {
+    setAttribute(Qt::WA_TranslucentBackground, true);
+    setAttribute(Qt::WA_NoSystemBackground, false);
+  } else {
+    setAttribute(Qt::WA_TranslucentBackground, false);
+    setAttribute(Qt::WA_NoSystemBackground, true);
+  }
 }
 
 void MainWindow::updateAdaptiveFont() noexcept

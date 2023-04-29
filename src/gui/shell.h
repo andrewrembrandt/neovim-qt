@@ -78,6 +78,7 @@ signals:
 	void neovimMaximized(bool);
 	void neovimForeground();
 	void neovimOpacity(double);
+	void neovimBackgroundOpacity(bool);
 	void neovimSuspend();
 	void neovimFullScreen(bool);
 	void neovimFrameless(bool);
@@ -170,6 +171,9 @@ protected:
 	virtual void handleGuiAdaptiveFont(const QVariantList& opargs) noexcept;
 	virtual void handleGuiAdaptiveStyle(const QVariantList& opargs) noexcept;
 	virtual void handleGuiAdaptiveStyleList() noexcept;
+
+  // Gui Opacity
+  virtual void handleGuiBackgroundOpacity(const QVariantList& opargs) noexcept;
 
 	void neovimMouseEvent(QMouseEvent *ev);
 	virtual void mousePressEvent(QMouseEvent *ev) Q_DECL_OVERRIDE;

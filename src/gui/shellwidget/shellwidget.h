@@ -1,6 +1,7 @@
 #pragma once
 
 #include <QWidget>
+#include <cstdint>
 
 #include "shellcontents.h"
 #include "cursor.h"
@@ -165,6 +166,11 @@ protected:
 		m_guifontwidelist = fontList;
 	}
 
+  void setBackgroundOpacity(uint8_t opacity) noexcept
+  {
+      m_backgroundOpacity = opacity;
+  }
+
 private:
 	void setFont(const QFont&);
 	void handleCursorChanged();
@@ -200,4 +206,5 @@ private:
 	bool m_isLigatureModeEnabled{ false };
 
 	Background m_background{ Background::Dark };
+  uint8_t m_backgroundOpacity{ 255 };
 };

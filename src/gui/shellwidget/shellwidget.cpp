@@ -315,8 +315,8 @@ void ShellWidget::paintBackgroundClearCell(
 		bgColor = (cell.IsReverse()) ? foreground() : background();
 	} 
 
-  if (!cell.IsReverse()) {
-    bgColor.setAlpha(210);
+  if (m_backgroundOpacity != 255 && !cell.IsReverse()) {
+    bgColor.setAlpha(m_backgroundOpacity);
     p.setCompositionMode(QPainter::CompositionMode_Source);
   }
 

@@ -12,6 +12,7 @@
 #include <QScreen>
 #include <QSettings>
 #include <QShowEvent>
+#include <cstdint>
 
 #include "app.h"
 #include "compat_gui.h"
@@ -901,6 +902,8 @@ void Shell::handleNeovimNotification(const QByteArray &name, const QVariantList&
 			if (ok) {
 				emit neovimOpacity(val);
 			}
+		} else if (guiEvName == "WindowBackgroundOpacity" && args.size() == 2) {
+      handleGuiBackgroundOpacity(args);
 		} else if (guiEvName == "ShowContextMenu") {
 			emit neovimShowContextMenu();
 		} else if (guiEvName == "AdaptiveColor") {
@@ -1302,6 +1305,29 @@ void Shell::handleGuiAdaptiveStyle(const QVariantList& opargs) noexcept
 void Shell::handleGuiAdaptiveStyleList() noexcept
 {
 	emit showGuiAdaptiveStyleList();
+}
+
+void Shell::handleGuiBackgroundOpacity(const QVariantList& opargs) noexcept
+{
+  bool ok = false;
+  uint8_t opacity { 255 };
+	if (opargs.size() == 2) {
+    auto val = opargs.at(1).toDouble(&ok);
+
+    if (ok && val <= 1.0 && val >= 0.0) {
+      opacity = val * 255.0;
+    }
+    else
+      ok = false;
+  }
+
+  if (!ok) {
+		qWarning() << "Unexpected arguments for GuiAdaptiveStyle:" << opargs;
+		return;
+	}
+
+  setBackgroundOpacity(opacity);
+  emit neovimBackgroundOpacity(opacity != 255);
 }
 
 void Shell::showEvent(QShowEvent* ev)
