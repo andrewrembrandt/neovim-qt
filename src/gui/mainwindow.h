@@ -59,7 +59,6 @@ private slots:
 	void setGuiAdaptiveFontEnabled(bool isEnabled);
 	void setGuiAdaptiveStyle(const QString& style);
 	void showGuiAdaptiveStyleList();
-  void setWindowBackgroundOpacity(bool isEnabled);
 
 private:
 	void init(NeovimConnector *);
