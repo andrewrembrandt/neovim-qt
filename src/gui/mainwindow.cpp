@@ -27,6 +27,9 @@ MainWindow::MainWindow(NeovimConnector* c, QWidget* parent) noexcept
 
 	setWindowTitle(DefaultWindowTitle());
 
+  setAttribute(Qt::WA_TranslucentBackground, true);
+  setAttribute(Qt::WA_NoSystemBackground, false);
+
 	init(c);
 }
 

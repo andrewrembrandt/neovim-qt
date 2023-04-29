@@ -313,7 +313,12 @@ void ShellWidget::paintBackgroundClearCell(
 	QColor bgColor{ cell.GetBackgroundColor() };
 	if (!bgColor.isValid()) {
 		bgColor = (cell.IsReverse()) ? foreground() : background();
-	}
+	} 
+
+  if (!cell.IsReverse()) {
+    bgColor.setAlpha(210);
+    p.setCompositionMode(QPainter::CompositionMode_Source);
+  }
 
 	p.fillRect(cellRect, bgColor);
 
