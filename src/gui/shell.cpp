@@ -1322,12 +1322,13 @@ void Shell::handleGuiBackgroundOpacity(const QVariantList& opargs) noexcept
   }
 
   if (!ok) {
-		qWarning() << "Unexpected arguments for GuiAdaptiveStyle:" << opargs;
+		qWarning() << "Unexpected arguments for GuiWindowBackgroundOpacity:" << opargs;
 		return;
 	}
 
   setBackgroundOpacity(opacity);
   emit neovimBackgroundOpacity(opacity != 255);
+  repaint();
 }
 
 void Shell::showEvent(QShowEvent* ev)
