@@ -70,6 +70,7 @@ public:
 	static void DispatchRedrawNotifications(
 		T* pThis, const QVariantList& args) noexcept;
 
+	NeovimConnector* nvim() { return m_nvim; }
 signals:
 	void neovimTitleChanged(const QString &title);
 	void neovimBusyChanged(bool);
@@ -98,7 +99,7 @@ public slots:
 	void handleNeovimNotification(const QByteArray &name, const QVariantList& args);
 	void resizeNeovim(const QSize&);
 	void resizeNeovim(int n_cols, int n_rows);
-	bool setGuiFont(const QString& fdesc, bool force) noexcept;
+	bool setGuiFont(const QString& fdesc, bool force, bool reset=false) noexcept;
 	bool setGuiFontWide(const QString& fdesc) noexcept;
 	void updateGuiWindowState(Qt::WindowStates state);
 	void openFiles(const QList<QUrl> url);
@@ -116,6 +117,7 @@ protected slots:
 	void handleGinitError(quint32 msgid, quint64 fun, const QVariant& err);
 	void handleShimError(quint32 msgid, quint64 fun, const QVariant& err);
 	void handleGetBackgroundOption(quint32 msgid, quint64 fun, const QVariant& val);
+	void screenChanged();
 
 protected:
 	void tooltip(const QString& text);
@@ -192,10 +194,12 @@ protected:
 
 private slots:
 	void setAttached(bool attached);
+	void ensureVisible() noexcept;
 
 private:
 	bool m_init_called{ false };
 	bool m_attached{ false };
+	bool m_shown{ false };
 	NeovimConnector* m_nvim{ nullptr };
 
 	QList<QUrl> m_deferredOpen;
@@ -223,7 +227,7 @@ private:
 	/// Neovim mode descriptions from "mode_change", used by guicursor
 	QVariantList m_modeInfo;
 
-	bool m_resizing{ false };
+	QSize m_resizing;
 	QSize m_resize_neovim_pending;
 	QLabel* m_tooltip{ nullptr };
 	QPoint m_mouse_pos;
@@ -233,12 +237,16 @@ private:
 	Qt::MouseButton m_mouseclick_pending;
 	// Accumulates remainder of steppy scroll
 	QPoint m_scrollDeltaRemainder;
+	// Ensures that the Shell widget is made visible
+	QTimer m_visibility_timer;
 
 	// Properties
 	bool m_neovimBusy{ false };
 	ShellOptions m_options;
 	PopupMenu m_pum{ this };
 	bool m_mouseEnabled{ true };
+
+	QWindow *m_window_handle{ nullptr };
 };
 
 class ShellRequestHandler: public QObject, public MsgpackRequestHandler

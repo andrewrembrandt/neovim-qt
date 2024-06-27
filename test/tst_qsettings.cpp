@@ -25,13 +25,23 @@ private slots:
 	void GuiTreeView() noexcept;
 };
 
-static void SendNeovimCommand(NeovimConnector& connector, const QString& command) noexcept
+static void SendNeovimCommand(NeovimConnector* connector, const QString& command) noexcept
 {
-	QSignalSpy spyCommand{ connector.api0()->vim_command_output(connector.encode(command)),
+	QSignalSpy spyCommand{ connector->api0()->vim_command_output(connector->encode(command)),
 		&MsgpackRequest::finished };
 
 	QVERIFY(spyCommand.isValid());
 	QVERIFY(SPYWAIT(spyCommand));
+
+
+	// Hypothesis: sometimes we do not wait long enough for the effects of
+	// a command to manifest because it requires
+	// 1. msg from gui to nvim
+	// 2. msg from nvim to gui
+	// The later are usually asynchronous notifications
+	//
+	// Attempt to ensure the previous command had the inteded effect
+	QTest::qSleep(1000);
 }
 
 void TestQSettings::initTestCase() noexcept
@@ -49,15 +59,13 @@ void TestQSettings::OptionLineGrid() noexcept
 	QSettings settings;
 
 	settings.setValue("ext_linegrid", true);
-	auto csWithLineGrid{ CreateShellWidget() };
-	Shell* sWithLineGrid{ csWithLineGrid.second };
+	auto sWithLineGrid = CreateShellWidget();
 	ShellOptions shellOptionsWithLineGrid{ sWithLineGrid->GetShellOptions() };
 
 	QCOMPARE(shellOptionsWithLineGrid.IsLineGridEnabled(), true);
 
 	settings.setValue("ext_linegrid", false);
-	auto csLegacy{ CreateShellWidget() };
-	Shell* sLegacy{ csLegacy.second };
+	auto sLegacy = CreateShellWidget();
 	ShellOptions shellOptionsLegacy{ sLegacy->GetShellOptions() };
 
 	QCOMPARE(shellOptionsLegacy.IsLineGridEnabled(), false);
@@ -65,22 +73,25 @@ void TestQSettings::OptionLineGrid() noexcept
 
 void TestQSettings::OptionPopupMenu() noexcept
 {
-	auto cw{ CreateMainWindowWithRuntime() };
-	NeovimConnector& connector{ *cw.first };
+	auto w = CreateMainWindowWithRuntime();
+	NeovimConnector* connector = w->shell()->nvim();
 
 	QSettings settings;
+	QSignalSpy spy_fontchange(w->shell(), &ShellWidget::shellFontChanged);
 
 	SendNeovimCommand(connector, "GuiPopupmenu 1");
+	SPYWAIT(spy_fontchange, 2500 /*msec*/);
 	QCOMPARE(settings.value("ext_popupmenu").toBool(), true);
 
 	SendNeovimCommand(connector, "GuiPopupmenu 0");
+	SPYWAIT(spy_fontchange, 2500 /*msec*/);
 	QCOMPARE(settings.value("ext_popupmenu").toBool(), false);
 }
 
 void TestQSettings::OptionTabline() noexcept
 {
-	auto cw{ CreateMainWindowWithRuntime() };
-	NeovimConnector& connector{ *cw.first };
+	auto w = CreateMainWindowWithRuntime();
+	NeovimConnector* connector = w->shell()->nvim();
 
 	QSettings settings;
 
@@ -93,9 +104,8 @@ void TestQSettings::OptionTabline() noexcept
 
 void TestQSettings::GuiFont() noexcept
 {
-	auto cw{ CreateMainWindowWithRuntime() };
-	NeovimConnector& connector{ *cw.first };
-	MainWindow& window{ *cw.second };
+	auto w = CreateMainWindowWithRuntime();
+	NeovimConnector* connector = w->shell()->nvim();
 
 	QSettings settings;
 
@@ -103,14 +113,14 @@ void TestQSettings::GuiFont() noexcept
 	const QString fontCommand{ QStringLiteral("GuiFont! %1").arg(fontDesc) };
 
 	SendNeovimCommand(connector, fontCommand);
-	QCOMPARE(window.shell()->fontDesc(), fontDesc);
+	QCOMPARE(w->shell()->fontDesc(), fontDesc);
 	QCOMPARE(settings.value("Gui/Font").toString(), fontDesc);
 }
 
 void TestQSettings::GuiScrollBar() noexcept
 {
-	auto cw{ CreateMainWindowWithRuntime() };
-	NeovimConnector& connector{ *cw.first };
+	auto w = CreateMainWindowWithRuntime();
+	NeovimConnector* connector = w->shell()->nvim();
 
 	QSettings settings;
 
@@ -122,8 +132,8 @@ void TestQSettings::GuiScrollBar() noexcept
 }
 void TestQSettings::GuiTreeView() noexcept
 {
-	auto cw{ CreateMainWindowWithRuntime() };
-	NeovimConnector& connector{ *cw.first };
+	auto w = CreateMainWindowWithRuntime();
+	NeovimConnector* connector = w->shell()->nvim();
 
 	QSettings settings;
 

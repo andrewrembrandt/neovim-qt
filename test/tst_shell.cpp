@@ -64,10 +64,9 @@ void TestShell::benchStart() noexcept
 {
 	QBENCHMARK
 	{
-		auto cs{ CreateShellWidget() };
-		Shell* s{ cs.second };
+		auto s = CreateShellWidget();
 
-		QSignalSpy onResize(s, &Shell::neovimResized);
+		QSignalSpy onResize(s.get(), &Shell::neovimResized);
 		QVERIFY(onResize.isValid());
 		QVERIFY(SPYWAIT(onResize));
 	}
@@ -75,24 +74,22 @@ void TestShell::benchStart() noexcept
 
 void TestShell::startVarsShellWidget() noexcept
 {
-	auto cs{ CreateShellWidget() };
-	NeovimConnector* c{ cs.first };
+	auto s = CreateShellWidget();
 
-	checkStartVars(c);
+	checkStartVars(s->nvim());
 }
 
 void TestShell::startVarsMainWindow() noexcept
 {
-	auto cw{ CreateMainWindow() };
-	NeovimConnector* c{ cw.first };
-
-	checkStartVars(c);
+	auto w = CreateMainWindow();
+	checkStartVars(w->shell()->nvim());
 }
 
 void TestShell::gviminit() noexcept
 {
 	qputenv("GVIMINIT", "let g:test_gviminit = 1");
-	NeovimConnector* c{ CreateShellWidget().first };
+	auto s = CreateShellWidget();
+	NeovimConnector* c = s->nvim();
 
 	MsgpackRequest* req{ c->api0()->vim_command_output(c->encode("echo g:test_gviminit")) };
 	QSignalSpy cmd{ req, &MsgpackRequest::finished };
@@ -103,9 +100,8 @@ void TestShell::gviminit() noexcept
 
 void TestShell::guiShimCommands() noexcept
 {
-	auto cw{ CreateMainWindowWithRuntime() };
-	NeovimConnector* c{ cw.first };
-	MainWindow* w{ cw.second };
+	auto w = CreateMainWindowWithRuntime();
+	auto c = w->shell()->nvim();
 
 	QObject::connect(c->neovimObject(), &NeovimApi1::err_vim_command_output, SignalPrintError);
 
@@ -150,6 +146,32 @@ void TestShell::guiShimCommands() noexcept
 	SPYWAIT(spy_fontchange2, 5000 /*msec*/);
 
 	QCOMPARE(w->shell()->fontDesc(), expectedFontBoldRemoved);
+
+	// GuiRenderFontAttr
+	QCOMPARE(w->shell()->renderFontAttr(), true);
+
+	QSignalSpy spy_fontattr_change(w->shell(), &ShellWidget::renderFontAttrChanged);
+	QVERIFY(spy_fontattr_change.isValid());
+	QSignalSpy cmd_fontattr(
+		c->neovimObject()->vim_command_output(c->encode("GuiRenderFontAttr 0")),
+		&MsgpackRequest::finished);
+	QVERIFY(cmd_fontattr.isValid());
+
+	QVERIFY2(SPYWAIT(cmd_fontattr), "Waiting for GuiRenderFontAttr cmd");
+	QVERIFY2(SPYWAIT(spy_fontattr_change), "Waiting for renderFontAttrChanged");
+	QCOMPARE(w->shell()->renderFontAttr(), false);
+
+	QSignalSpy spy_fontattr_change2(w->shell(), &ShellWidget::renderFontAttrChanged);
+	QVERIFY(spy_fontattr_change2.isValid());
+	QSignalSpy cmd_fontattr2(
+		c->neovimObject()->vim_command_output(c->encode("GuiRenderFontAttr 1")),
+		&MsgpackRequest::finished);
+	QVERIFY(cmd_fontattr2.isValid());
+
+	QVERIFY2(SPYWAIT(cmd_fontattr2), "Waiting for GuiRenderFontAttr cmd");
+	QVERIFY2(SPYWAIT(spy_fontattr_change2), "Waiting for renderFontAttrChanged");
+	QCOMPARE(w->shell()->renderFontAttr(), true);
+
 }
 
 void TestShell::CloseEvent_data() noexcept
@@ -173,9 +195,8 @@ void TestShell::CloseEvent_data() noexcept
 
 void TestShell::CloseEvent() noexcept
 {
-	auto cw{ CreateMainWindowWithRuntime() };
-	NeovimConnector* c{ cw.first };
-	MainWindow* w{ cw.second };
+	auto w = CreateMainWindowWithRuntime();
+	auto c = w->shell()->nvim();
 
 	QFETCH(int, msgpack_status);
 	QFETCH(int, exit_status);
@@ -185,7 +206,7 @@ void TestShell::CloseEvent() noexcept
 	QSignalSpy onClose(w->shell(), &Shell::neovimGuiCloseRequest);
 	QVERIFY(onClose.isValid());
 
-	QSignalSpy onWindowClosing(w, &MainWindow::closing);
+	QSignalSpy onWindowClosing(w.get(), &MainWindow::closing);
 	QVERIFY(onWindowClosing.isValid());
 
 	c->api0()->vim_command(c->encode(command));
@@ -229,8 +250,8 @@ void TestShell::GetClipboard_data() noexcept
 
 void TestShell::GetClipboard() noexcept
 {
-	auto cw{ CreateMainWindowWithRuntime() };
-	NeovimConnector* c{ cw.first };
+	auto w = CreateMainWindowWithRuntime();
+	NeovimConnector* c = w->shell()->nvim();
 
 	QFETCH(char, reg);
 	QFETCH(QByteArray, register_data);
@@ -267,8 +288,8 @@ void TestShell::SetClipboard_data() noexcept
 
 void TestShell::SetClipboard() noexcept
 {
-	auto cw{ CreateMainWindowWithRuntime() };
-	NeovimConnector* c{ cw.first };
+	auto w = CreateMainWindowWithRuntime();
+	NeovimConnector* c = w->shell()->nvim();
 
 	QFETCH(char, reg);
 	QFETCH(QByteArray, register_data);

@@ -1,7 +1,10 @@
 #include "mainwindow.h"
 
+#include <QApplication>
 #include <QCloseEvent>
+#include <QEventLoop>
 #include <QLayout>
+#include <QScreen>
 #include <QSettings>
 #include <QStyleFactory>
 #include <QToolBar>
@@ -11,6 +14,23 @@ namespace NeovimQt {
 static QString DefaultWindowTitle() noexcept
 {
 	return "Neovim";
+}
+
+static void SetDefaultWindowSize(QWidget& widget) noexcept
+{
+	const QPoint local_position{ widget.width() / 2, 0 };
+	const QPoint global_position{ widget.mapToGlobal(local_position) };
+	const QScreen* screen{ qApp->screenAt(global_position) };
+	if (!screen) {
+		return;
+	}
+	const QRect geometry{ screen->availableGeometry() };
+	if (screen->orientation() == Qt::LandscapeOrientation) {
+		widget.resize(geometry.width() / 2, geometry.height());
+	}
+	else {
+		widget.resize(geometry.width(), geometry.height() / 2);
+	}
 }
 
 MainWindow::MainWindow(NeovimConnector* c, QWidget* parent) noexcept
@@ -45,11 +65,11 @@ void MainWindow::init(NeovimConnector *c)
 	}
 
 	m_shell = new Shell(c);
+	m_shell->setParent(this);
 
 	addToolBar(&m_tabline);
 
 	m_nvim = c;
-	m_nvim->setParent(this);
 
 	// GuiShowContextMenu - right click context menu and actions.
 	m_contextMenu = new ContextMenu(c, this);
@@ -238,6 +258,18 @@ void MainWindow::neovimGuiCloseRequest(int status)
 {
 	m_neovim_requested_close = true;
 	m_exitStatus = status;
+
+	// Try to wait for neovim to quit
+	QTimer timer;
+	timer.setSingleShot(true);
+	QEventLoop loop;
+	connect(m_nvim, &NeovimConnector::processExited, &loop, &QEventLoop::quit);
+	connect(m_nvim, &NeovimConnector::aboutToClose, &loop, &QEventLoop::quit);
+	timer.start(500);
+	loop.exec();
+	bool timed_out = !timer.isActive();
+	qDebug() << "Waited for neovim close, timed out:" << timed_out;
+
 	QMainWindow::close();
 	m_neovim_requested_close = false;
 }
@@ -301,7 +333,12 @@ Shell* MainWindow::shell()
 
 void MainWindow::saveWindowGeometry()
 {
-	QSettings settings{ "window-geometry" };
+	QSettings settings("nvim-qt", "window-geometry");
+	const bool restore_window_geometry{ settings.value("restore_window_geometry", true).toBool() };
+	if (!restore_window_geometry) {
+		return;
+	}
+	settings.setValue("restore_window_geometry", restore_window_geometry);
 	settings.setValue("window_geometry", saveGeometry());
 	settings.setValue("window_state", saveState());
 }
@@ -314,9 +351,21 @@ void MainWindow::restoreWindowGeometry()
 	qRegisterMetaTypeStreamOperators<QList<int>>("QList<int>");
 #endif
 
-	QSettings settings{ "window-geometry" };
-	restoreGeometry(settings.value("window_geometry").toByteArray());
-	restoreState(settings.value("window_state").toByteArray());
+	QSettings settings("nvim-qt", "window-geometry");
+	if (!settings.value("restore_window_geometry", true).toBool()) {
+		return;
+	}
+	const QVariant geometry{ settings.value("window_geometry") };
+	if (geometry.isValid()) {
+		restoreGeometry(geometry.toByteArray());
+	}
+	else {
+		SetDefaultWindowSize(*this);
+	}
+	const QVariant state{ settings.value("window_state") };
+	if (state.isValid()) {
+		restoreState(state.toByteArray());
+	}
 }
 
 void MainWindow::setGuiAdaptiveColorEnabled(bool isEnabled)

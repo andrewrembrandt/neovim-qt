@@ -93,6 +93,8 @@ Shell::Shell(NeovimConnector *nvim, QWidget *parent)
 		return;
 	}
 
+	m_nvim->setParent(this);
+
 	connect(m_nvim, &NeovimConnector::error,
 			this, &Shell::neovimError);
 	connect(m_nvim, &NeovimConnector::processExited,
@@ -100,6 +102,15 @@ Shell::Shell(NeovimConnector *nvim, QWidget *parent)
 	connect(this, &ShellWidget::fontError, this, &Shell::handleFontError);
 
 	m_nvim->setRequestHandler(new ShellRequestHandler(this));
+}
+
+void Shell::ensureVisible() noexcept
+{
+	if (!m_shown) {
+		m_shown = true;
+		setVisible(true);
+		setFocus();
+	}
 }
 
 void Shell::handleFontError(const QString& msg)
@@ -113,11 +124,12 @@ void Shell::handleFontError(const QString& msg)
 ///
 /// @param fdesc Neovim font description string, "Fira Code:h11".
 /// @param force used to indicate :GuiFont!, overrides mono space checks.
+/// @param reset we reseting the font, ignore optimizations
 /// @returns `true` if the font was successfully set.
-bool Shell::setGuiFont(const QString& fdesc, bool force) noexcept
+bool Shell::setGuiFont(const QString& fdesc, bool force, bool reset) noexcept
 {
 	// Exit early if the font description has not changed
-	if (fdesc.compare(fontDesc(), Qt::CaseInsensitive) == 0) {
+	if (!reset && fdesc.compare(fontDesc(), Qt::CaseInsensitive) == 0) {
 		return false;
 	}
 
@@ -166,6 +178,14 @@ bool Shell::setGuiFont(const QString& fdesc, bool force) noexcept
 
 	return true;
 }
+
+void Shell::screenChanged()
+{
+	// When the screen changes due to dpi scaling we have to
+	// re-set the current font
+	setGuiFont(fontDesc(), true, true);
+}
+
 
 bool Shell::setGuiFontWide(const QString& fdesc) noexcept
 {
@@ -316,6 +336,10 @@ void Shell::init()
 		return;
 	}
 
+	// Pull Request#1101: Defer displaying the shell until colors have been set
+	if (!m_shown) {
+		setVisible(false);
+	}
 	connect(m_nvim->api0(), &NeovimApi0::neovimNotification,
 			this, &Shell::handleNeovimNotification);
 	connect(m_nvim->api0(), &NeovimApi0::on_ui_try_resize,
@@ -355,6 +379,16 @@ void Shell::init()
 
 	// Set initial value
 	m_nvim->api0()->vim_set_var("GuiWindowFrameless", (windowFlags() & Qt::FramelessWindowHint) ? 1: 0);
+
+	// Make the shell visible even when default_colors_set is not received,
+	// e.g. when using the older cell-based grid protocol.
+	if (!m_shown) {
+		constexpr int visibility_timeout{ 850 };
+		m_visibility_timer.setInterval(visibility_timeout);
+		m_visibility_timer.setSingleShot(true);
+		connect(&m_visibility_timer, &QTimer::timeout, this, &Shell::ensureVisible);
+		m_visibility_timer.start();
+	}
 }
 
 void Shell::neovimError(NeovimConnector::NeovimError err)
@@ -929,7 +963,11 @@ void Shell::handleExtGuiOption(const QString& name, const QVariant& value)
 		handleGuiPopupmenu(value);
 	} else if (name == "RenderLigatures"){
 		setLigatureMode(value.toBool());
-	} else {
+	}
+	else if (name == "RenderFontAttr") {
+		setRenderFontAttr(value.toBool());
+	}
+	else {
 		// Uncomment for writing new event handling code.
 		// qDebug() << "Unknown GUI Option" << name << value;
 	}
@@ -1115,6 +1153,8 @@ void Shell::handleDefaultColorsSet(const QVariantList& opargs)
 	setBackground(backgroundColor);
 	setSpecial(specialColor);
 
+	// Display the shell now that the default colors have been set.
+	ensureVisible();
 	// Cells drawn with the default colors require a re-paint
 	update();
 	emit colorsChanged();
@@ -1342,6 +1382,19 @@ void Shell::showEvent(QShowEvent* ev)
 	if (m_nvim->isReady()) {
 		init();
 	}
+
+	screenChanged();
+
+	if (m_window_handle) {
+		disconnect(m_window_handle, &QWindow::screenChanged, this, &Shell::screenChanged);
+		m_window_handle = nullptr;
+	}
+
+	auto win = this->window();
+	if (win) {
+		m_window_handle = win->windowHandle();
+		connect(m_window_handle, &QWindow::screenChanged, this, &Shell::screenChanged);
+	}
 }
 
 void Shell::paintEvent(QPaintEvent *ev)
@@ -1497,9 +1550,7 @@ void Shell::wheelEvent(QWheelEvent *ev)
 	QSize cellSize,
 	int deltasPerStep) noexcept
 {
-	int invertConstant{ (ev.inverted()) ? -1 : 1 };
-
-	QPoint scrollRemainderAndEvent { (ev.angleDelta() * invertConstant) + scrollRemainderOut };
+	QPoint scrollRemainderAndEvent{ ev.angleDelta() + scrollRemainderOut };
 
 	scrollRemainderOut.rx() = scrollRemainderAndEvent.x() % deltasPerStep;
 	scrollRemainderOut.ry() = scrollRemainderAndEvent.y() % deltasPerStep;
@@ -1607,11 +1658,22 @@ void Shell::resizeNeovim(int n_cols, int n_rows)
 	if (!m_nvim || (n_cols == columns() && n_rows == rows())) {
 		return;
 	}
-	if (m_resizing) {
-		m_resize_neovim_pending = QSize(n_cols, n_rows);
-	} else {
+
+	auto newsize = QSize(n_cols, n_rows);
+
+	if (m_resizing.isValid() && m_resizing == newsize) {
+		// Do not trigger two consecutive resizes for the same size.
+		// Neovim may fail to resize and issue a resize event that
+		// would result in a loop
+		return;
+	}
+
+	if (m_resizing.isValid()) {
+		m_resize_neovim_pending = newsize;
+	}
+	else {
 		m_nvim->api0()->ui_try_resize(n_cols, n_rows);
-		m_resizing = true;
+		m_resizing = newsize;
 	}
 }
 
@@ -1631,7 +1693,8 @@ void Shell::resizeEvent(QResizeEvent *ev)
  */
 void Shell::neovimResizeFinished()
 {
-	m_resizing = false;
+	m_resizing = QSize();
+
 	if (m_resize_neovim_pending.isValid()) {
 		resizeNeovim(m_resize_neovim_pending.width(),
 				m_resize_neovim_pending.height());
